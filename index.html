@@ -199,19 +199,19 @@ footer{padding:1rem 1.5rem;border-top:1px solid rgba(7,149,152,.15);display:flex
 <body>
 
 <!-- LOGIN -->
-<div id="login-screen">
+<div id="login-screen" style="display:flex">
   <div class="l-badge">WATAD</div>
   <div class="l-title">Content Dashboard</div>
-  <div class="l-sub">سجّل دخول بحساب Google للوصول للداشبورد مع التيم</div>
-  <button class="g-btn" onclick="signInGoogle()">
-    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
-    تسجيل الدخول بـ Google
-  </button>
-  <div class="l-guest" onclick="guestMode()">أو تابع كـ Guest بدون تسجيل دخول</div>
+  <div class="l-sub">اكتب اسمك للدخول للداشبورد مع التيم</div>
+  <div style="display:flex;gap:10px;width:100%;max-width:320px">
+    <input id="name-inp" class="wi" placeholder="اسمك..." style="flex:1;font-size:14px;padding:12px 16px;border-radius:4px" onkeydown="if(event.key==='Enter')enterDash()">
+    <button class="g-btn" onclick="enterDash()" style="padding:12px 20px;border-radius:4px;flex-shrink:0">دخول ←</button>
+  </div>
+  <div class="l-guest" onclick="enterDash()">أو تابع بدون اسم</div>
 </div>
 
 <!-- APP -->
-<div id="app">
+<div id="app" style="display:none">
   <nav class="nav">
     <div class="nav-l">
       <span class="nav-badge">WATAD</span>
@@ -305,7 +305,6 @@ footer{padding:1rem 1.5rem;border-top:1px solid rgba(7,149,152,.15);display:flex
 <div class="toast" id="toast"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -347,49 +346,36 @@ function initFirebase(){
   try{
     firebase.initializeApp(FB_CFG);
     db=firebase.database();
-    firebase.auth().onAuthStateChanged(user=>{
-      if(user){
-        curUser=user;
-        showApp(user.displayName||user.email,user.photoURL);
-        loadData();
-      }
-      // No else — don't auto-redirect, let user choose
-    });
   }catch(e){
-    console.warn('Firebase error:',e);
-    // If Firebase fails, still allow guest
+    console.warn('Firebase DB error:',e);
   }
 }
 
-function showApp(name,photo){
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('app').style.display='block';
-  document.getElementById('u-nm').textContent=name||'Guest';
-  if(photo){
-    const av=document.getElementById('u-av');
-    av.src=photo;av.style.display='block';
-  }
-}
-
-function signInGoogle(){
-  if(!firebase.apps.length){toast('خطأ في الاتصال بـ Firebase');return}
-  const p=new firebase.auth.GoogleAuthProvider();
-  firebase.auth().signInWithPopup(p)
-    .then(r=>{ curUser=r.user; showApp(r.user.displayName||r.user.email,r.user.photoURL); loadData(); })
-    .catch(e=>toast('خطأ: '+e.message));
-}
-
-function guestMode(){
-  curUser=null;
-  showApp('Guest',null);
+function enterDash(){
+  const inp=document.getElementById('name-inp');
+  const name=(inp?inp.value.trim():'')||'Guest';
+  curUser={displayName:name,photoURL:null,email:null};
+  try{ localStorage.setItem('watad_user_name',name); }catch(e){}
+  showApp(name,null);
   loadData();
 }
 
+function showApp(name,photo){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('u-nm').textContent=name||'Guest';
+}
+
+function signInGoogle(){ enterDash(); }
+function guestMode(){ enterDash(); }
+
 function signOut(){
-  if(firebase.apps.length) firebase.auth().signOut().catch(()=>{});
+  try{ localStorage.removeItem('watad_user_name'); }catch(e){}
   curUser=null;
   document.getElementById('app').style.display='none';
-  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-screen').style.display='flex';
+  const inp=document.getElementById('name-inp');
+  if(inp) inp.value='';
 }
 
 // ── DATA ─────────────────────────────────────────────────────────────────────
@@ -612,6 +598,17 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAdd();closeEdi
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 initFirebase();
+// Auto-login if saved name
+try{
+  const saved=localStorage.getItem('watad_user_name');
+  if(saved){
+    curUser={displayName:saved,photoURL:null,email:null};
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('u-nm').textContent=saved;
+    loadData();
+  }
+}catch(e){}
 </script>
 </body>
 </html>
