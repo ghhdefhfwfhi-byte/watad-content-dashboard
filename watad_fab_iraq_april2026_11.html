@@ -200,6 +200,8 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   a{color:var(--teal)!important}
 }
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -528,6 +530,127 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// ── FIREBASE CONFIG ──────────────────────────────────────────
+const FB_CFG={
+  apiKey:"AIzaSyDQ_D-W0iLO075-P7xjahmWJ3av-f-6mck",
+  authDomain:"geely-watad-v1-ads-format.firebaseapp.com",
+  databaseURL:"https://geely-watad-v1-ads-format-default-rtdb.firebaseio.com",
+  projectId:"geely-watad-v1-ads-format"
+};
+const DB_REPORT_KEY = 'fab_iraq_april2026_links';
+let db = null;
+
+function initFB(){
+  try{
+    firebase.initializeApp(FB_CFG);
+    db = firebase.database();
+    // Load saved links from Firebase
+    db.ref(DB_REPORT_KEY).once('value').then(snap=>{
+      const data = snap.val();
+      if(data){
+        Object.keys(data).forEach(n=>{
+          const inp = document.getElementById('al'+n);
+          if(inp && data[n]){
+            inp.value = data[n];
+            updateLinkBtn(n, data[n]);
+          }
+        });
+      }
+    }).catch(()=>loadFromLocal());
+  }catch(e){ loadFromLocal(); }
+}
+
+function updateLinkBtn(n, v){
+  const btn = document.getElementById('lb'+n);
+  if(btn){ btn.href=v; btn.style.display=v&&v.startsWith('http')?'inline-block':'none'; }
+}
+
+function upLink(n, v){
+  updateLinkBtn(n, v);
+  // Save to Firebase
+  if(db){
+    db.ref(DB_REPORT_KEY+'/'+n).set(v)
+      .then(()=>showSaved())
+      .catch(()=>saveLocal(n,v));
+  } else {
+    saveLocal(n,v);
+  }
+}
+
+function saveLocal(n,v){
+  try{const d=JSON.parse(localStorage.getItem('fab_links')||'{}');d[n]=v;localStorage.setItem('fab_links',JSON.stringify(d))}catch(e){}
+}
+
+function loadFromLocal(){
+  try{
+    const d=JSON.parse(localStorage.getItem('fab_links')||'{}');
+    Object.keys(d).forEach(n=>{
+      const inp=document.getElementById('al'+n);
+      if(inp&&d[n]){inp.value=d[n];updateLinkBtn(n,d[n]);}
+    });
+  }catch(e){}
+}
+
+function showSaved(){
+  let el = document.getElementById('save-toast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'save-toast';
+    el.style.cssText='position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#10B981;color:#fff;padding:8px 20px;border-radius:5px;font-size:13px;font-weight:600;font-family:Inter,sans-serif;z-index:9999;transition:opacity .3s';
+    document.body.appendChild(el);
+  }
+  el.textContent = '✓ تم الحفظ';
+  el.style.opacity='1';
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.style.opacity='0', 2000);
+}
+
+// ── PDF EXPORT ───────────────────────────────────────────────
+function savePDF(){
+  const bar = document.querySelector('.print-bar');
+  bar.style.display = 'none';
+  const linkRows = document.querySelectorAll('.ad-link-row');
+  linkRows.forEach(r => r.style.display = 'none');
+  document.querySelector('.wrap').style.paddingBottom = '16px';
+  const el = document.querySelector('.wrap');
+  html2canvas(el, {
+    scale: 2, useCORS: true, backgroundColor: '#F5F6F8',
+    logging: false, windowWidth: 1080,
+    width: el.offsetWidth, height: el.scrollHeight
+  }).then(canvas => {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const totalH = canvas.height;
+    const pageH = Math.floor((ph * canvas.width) / pw);
+    let y = 0, pg = 0;
+    while(y < totalH){
+      if(pg > 0) pdf.addPage();
+      const srcH = Math.min(pageH, totalH - y);
+      const tmp = document.createElement('canvas');
+      tmp.width = canvas.width; tmp.height = srcH;
+      const ctx = tmp.getContext('2d');
+      ctx.fillStyle='#F5F6F8'; ctx.fillRect(0,0,tmp.width,tmp.height);
+      ctx.drawImage(canvas,0,y,canvas.width,srcH,0,0,canvas.width,srcH);
+      pdf.addImage(tmp.toDataURL('image/jpeg',0.95),'JPEG',0,0,pw,(srcH*pw)/canvas.width);
+      y+=pageH; pg++;
+    }
+    pdf.save('FAB_Iraq_Paid_Media_April_2026.pdf');
+    bar.style.display='flex';
+    linkRows.forEach(r=>r.style.display='');
+    document.querySelector('.wrap').style.paddingBottom='';
+  }).catch(()=>{
+    bar.style.display='flex';
+    linkRows.forEach(r=>r.style.display='');
+    document.querySelector('.wrap').style.paddingBottom='';
+  });
+}
+
+window.addEventListener('load', initFB);
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 function savePDF(){
